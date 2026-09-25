@@ -97,6 +97,39 @@ const DISCOVERY_LINKS: DiscoveryLink[] = [
   },
 ];
 
+const BLUEPRINT_STEPS = [
+  {
+    step: 1,
+    title: "Paso 1: El Problema Raíz",
+    explanation:
+      "CHARLIE: Primero lo primero. No te quedes en la superficie. Sigue preguntando '¿Por qué?' hasta llegar al dolor real de tu cliente.",
+    prompt: "¿Qué problema exacto estás intentando resolver?",
+  },
+  {
+    step: 2,
+    title: "Paso 2: La Observación Oculta",
+    explanation:
+      "CHARLIE: La mayoría de empresas hacen lo mismo. Dime qué secreto u oportunidad estás viendo tú que los demás competidores están ignorando.",
+    prompt:
+      "¿Qué ves en tu industria que todos los demás están ignorando o haciendo mal?",
+  },
+  {
+    step: 3,
+    title: "Paso 3: El Enemigo",
+    explanation:
+      "CHARLIE: Todo gran proyecto combate una injusticia (el status quo, la burocracia, la vieja forma de hacer las cosas, o la fricción).",
+    prompt: "¿Contra qué estamos peleando? Define a tu enemigo.",
+  },
+  {
+    step: 4,
+    title: "Paso 4: El Destino a 90 Días",
+    explanation:
+      "CHARLIE: Definamos la victoria. Proyéctate a 90 días para medir el impacto real.",
+    prompt:
+      "¿Cuál es la victoria absoluta? ¿Cómo le cambia la vida a tu cliente -y a ti- cuando resolvamos esto?",
+  },
+];
+
 type Box = {
   promise: string;
   icp: string;
@@ -263,6 +296,10 @@ function Index() {
   const [projectDesc, setProjectDesc] = useState("");
   const [selectedSquad, setSelectedSquad] = useState<string | null>(null);
   const [showPay, setShowPay] = useState(false);
+  const [hasPaidVisionUnit, setHasPaidVisionUnit] = useState(false);
+  const [blueprintStep, setBlueprintStep] = useState(1);
+  const [blueprintDraft, setBlueprintDraft] = useState("");
+  const [blueprintAnswers, setBlueprintAnswers] = useState<string[]>([]);
   const [canvasStep, setCanvasStep] = useState(1);
   const [canvasDraft, setCanvasDraft] = useState("");
   const [cerealBox, setCerealBox] = useState<Box>({
@@ -287,7 +324,7 @@ function Index() {
   const [manual, setManual] = useState<Cassette>({
     title: "",
     desc: "",
-    imagePreview: null,
+    imagePreview: "/casette.jpeg",
     status: "proyecto",
   });
   // TODO(persistencia): cuando definamos Supabase, traer esto de la DB
@@ -330,13 +367,14 @@ function Index() {
   const pagar = () => {
     window.open("https://be-p.store", "_blank");
     setShowPay(false);
+    setHasPaidVisionUnit(true);
     // TODO(persistencia): cuando definamos Supabase, insertar la Misión en la DB acá.
-    setVaultCassettes([
-      ...vaultCassettes,
+    setVaultCassettes((current) => [
+      ...current,
       {
         title: projectName,
         desc: projectDesc,
-        imagePreview:"/casette.jpeg",
+        imagePreview: "/casette.jpeg",
         status: "mision",
       },
     ]);
@@ -347,12 +385,12 @@ function Index() {
 
   const guardarEnVault = () => {
     // TODO(persistencia): cuando definamos Supabase, insertar el Proyecto (sin Vision Unit) en la DB acá.
-    setVaultCassettes([
-      ...vaultCassettes,
+    setVaultCassettes((current) => [
+      ...current,
       {
         title: projectName,
         desc: projectDesc,
-        imagePreview:  "/casette.jpeg",
+        imagePreview: "/casette.jpeg",
         status: "proyecto",
       },
     ]);
@@ -383,12 +421,12 @@ function Index() {
     } catch (e) {
       console.error(e);
     }
-    setVaultCassettes([
-      ...vaultCassettes,
+    setVaultCassettes((current) => [
+      ...current,
       {
         title: projectName,
         desc: "Misión Completada",
-        imagePreview: null,
+        imagePreview: "/casette.jpeg",
         status: "mision",
       },
     ]);
@@ -398,8 +436,13 @@ function Index() {
 
   const addManual = () => {
     if (!manual.title.trim()) return;
-    setVaultCassettes([...vaultCassettes, manual]);
-    setManual({ title: "", desc: "", imagePreview: null, status: "proyecto" });
+    setVaultCassettes((current) => [...current, manual]);
+    setManual({
+      title: "",
+      desc: "",
+      imagePreview: "/casette.jpeg",
+      status: "proyecto",
+    });
   };
 
   if (currentView === 0) {
@@ -615,36 +658,181 @@ function Index() {
           </section>
         )}
 
-        {currentView === 8 && (
-          <section className="space-y-8 text-center">
-            <h1 className="text-3xl sm:text-4xl font-extrabold">
-              EL DESPERTAR
-            </h1>
-            <p className="text-neutral-300 max-w-2xl mx-auto leading-relaxed">
-              Tu ecosistema está activo. Antes de forjar tu cartucho, vamos a
-              correr tu Better Business Blueprint. Entrá por cualquiera de los
-              dos accesos (no hay orden forzado):
-            </p>
-            <div className="flex flex-wrap gap-4 justify-center">
-              {DISCOVERY_LINKS.map((l) => (
-                <a
-                  key={l.label}
-                  href={l.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className={`${l.label === "BLUEPRINT" ? CTA : GHOST} inline-flex items-center gap-2`}
+        {currentView === 8 &&
+          (() => {
+            const currentStep = BLUEPRINT_STEPS[blueprintStep - 1];
+            const answeredSteps = BLUEPRINT_STEPS.slice(0, blueprintStep - 1);
+            const isComplete = !currentStep;
+
+            const confirmAnswer = () => {
+              const answer = blueprintDraft.trim();
+              if (!answer || !currentStep || isComplete) return;
+
+              setBlueprintAnswers((current) => [...current, answer]);
+              setBlueprintDraft("");
+              setBlueprintStep((step) => step + 1);
+            };
+
+            return (
+              <section className="grid gap-6 lg:grid-cols-[3fr_7fr]">
+                <aside className="border-2 border-cyan-400 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.35)] bg-deep p-5 rounded-md font-mono space-y-4 lg:sticky lg:top-24 self-start">
+                  <p className="text-xs text-neutral-400">CHARLIE OS</p>
+                  <Sticker
+                    src="/Maqueño.png"
+                    alt="Maqueño"
+                    className="h-10 w-10 object-contain"
+                  />
+                  <p className="text-cyan-400 text-sm leading-relaxed">
+                    {isComplete
+                      ? "CHARLIE: Blueprint completado. Tu descubrimiento está listo para la consola."
+                      : currentStep?.explanation}
+                  </p>
+                </aside>
+
+                <div
+                  className={`${GLASS} rounded-xl p-6 space-y-6 lg:max-h-[75vh] lg:overflow-y-auto`}
+                  aria-live="polite"
                 >
-                  [ {l.label} ]
-                </a>
-              ))}
-            </div>
-            <div className="space-y-2">
-              <button className={GHOST} onClick={() => setCurrentView(2)}>
-                [ CONTINUAR A LA CONSOLA ]
-              </button>
-            </div>
-          </section>
-        )}
+                  <div className="space-y-2">
+                    <p className="font-mono text-xs text-cyan-400">
+                      EL DESPERTAR · BETTER BUSINESS BLUEPRINT
+                    </p>
+                    <h1 className="text-2xl font-extrabold text-cyan-400">
+                      DESCUBRÍ TU PROBLEMA RAÍZ
+                    </h1>
+                  </div>
+
+                  <div className="space-y-6">
+                    {answeredSteps.map((step, index) => (
+                      <div
+                        key={step.step}
+                        className="space-y-3 border-b border-cyan-400/10 pb-6 last:border-0 last:pb-0"
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className="shrink-0">
+                            <Sticker
+                              src="/Maqueño.png"
+                              alt="Maqueño"
+                              className="h-10 w-10 object-contain"
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm border border-cyan-400/40 bg-cyan-400/5 p-4 shadow-[0_0_16px_rgba(34,211,238,0.18)]">
+                            <p className="font-mono text-[10px] text-cyan-400/70">
+                              {step.title}
+                            </p>
+                            <p className="mt-2 text-sm leading-relaxed text-cyan-400">
+                              {step.explanation}
+                            </p>
+                            <p className="mt-3 font-extrabold text-cyan-400">
+                              {step.prompt}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="ml-8 rounded-xl rounded-tr-sm border border-cyan-400/20 bg-cyan-400/10 p-4">
+                          <p className="font-mono text-[10px] text-neutral-400">
+                            TU RESPUESTA
+                          </p>
+                          <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
+                            {blueprintAnswers[index]}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+
+                    {!isComplete && currentStep && (
+                      <div className="space-y-4">
+                        <div className="flex items-start gap-3">
+                          <div className="shrink-0">
+                            <Sticker
+                              src="/Maqueño.png"
+                              alt="Maqueño"
+                              className="h-10 w-10 object-contain"
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm border border-cyan-400/40 bg-cyan-400/5 p-4 shadow-[0_0_16px_rgba(34,211,238,0.18)]">
+                            <p className="font-mono text-[10px] text-cyan-400/70">
+                              {currentStep.title}
+                            </p>
+                            <p className="mt-2 text-sm leading-relaxed text-cyan-400">
+                              {currentStep.explanation}
+                            </p>
+                            <p className="mt-3 font-extrabold text-cyan-400">
+                              {currentStep.prompt}
+                            </p>
+                          </div>
+                        </div>
+
+                        <label className="block space-y-2">
+                          <span className="sr-only">
+                            Respuesta para {currentStep.title}
+                          </span>
+                          <textarea
+                            key={currentStep.step}
+                            rows={4}
+                            className={`${INPUT} focus:!border-cyan-400`}
+                            value={blueprintDraft}
+                            placeholder="Escribí tu respuesta..."
+                            autoFocus
+                            onChange={(e) => setBlueprintDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                confirmAnswer();
+                              }
+                            }}
+                          />
+                        </label>
+
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <p className="font-mono text-xs text-cyan-400/70">
+                            {`PREGUNTA ${currentStep.step} / ${BLUEPRINT_STEPS.length}`}
+                          </p>
+                          <button
+                            type="button"
+                            className={`${GHOST} !border-cyan-400 !text-cyan-400 hover:!bg-cyan-400/10`}
+                            onClick={confirmAnswer}
+                            disabled={!blueprintDraft.trim()}
+                          >
+                            [ SIGUIENTE ]
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {isComplete && (
+                      <div className="space-y-6">
+                        <div className="flex items-start gap-3">
+                          <div className="shrink-0">
+                            <Sticker
+                              src="/Maqueño.png"
+                              alt="Maqueño"
+                              className="h-10 w-10 object-contain"
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm border border-cyan-400/40 bg-cyan-400/5 p-4 shadow-[0_0_16px_rgba(34,211,238,0.18)]">
+                            <p className="font-mono text-[10px] text-cyan-400/70">
+                              BLUEPRINT COMPLETO
+                            </p>
+                            <p className="mt-2 text-sm leading-relaxed text-cyan-400">
+                              Estructura descubierta. Tu visión está lista para
+                              entrar en la consola.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className={`${GHOST} !border-cyan-400 !text-cyan-400 hover:!bg-cyan-400/10`}
+                          onClick={() => setCurrentView(2)}
+                        >
+                          [ CONTINUAR A LA CONSOLA ]
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+            );
+          })()}
 
         {currentView === 2 && (
           <section className="space-y-8">
@@ -748,14 +936,24 @@ function Index() {
 
             return (
               <section className="grid gap-6 lg:grid-cols-[3fr_7fr]">
-                <aside className="border-2 border-neon shadow-[0_0_20px_rgba(56,189,248,0.35)] bg-deep p-5 rounded-md font-mono space-y-4 lg:sticky lg:top-24 self-start">
+                <aside
+                  className={`border-2 ${
+                    hasPaidVisionUnit
+                      ? "border-tactical text-tactical shadow-[0_0_20px_rgba(255,94,0,0.35)]"
+                      : "border-neon text-neon shadow-[0_0_20px_rgba(56,189,248,0.35)]"
+                  } bg-deep p-5 rounded-md font-mono space-y-4 lg:sticky lg:top-24 self-start`}
+                >
                   <p className="text-xs text-neutral-400">CHARLIE OS</p>
                   <Sticker
                     src="/Dreams Inc..png"
                     alt="Dreams Inc."
                     className="h-10"
                   />
-                  <p className="text-neon text-sm leading-relaxed">
+                  <p
+                    className={`text-sm leading-relaxed ${
+                      hasPaidVisionUnit ? "text-tactical" : "text-neon"
+                    }`}
+                  >
                     {isComplete
                       ? "CHARLIE: Estructura descubierta. Tu diseño está completo."
                       : currentQuestion &&
@@ -1072,11 +1270,27 @@ function Index() {
                 accept="image/*"
                 className="font-mono text-sm"
                 onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  setManual({
-                    ...manual,
-                    imagePreview: f ? URL.createObjectURL(f) : null,
-                  });
+                  const file = e.target.files?.[0];
+                  e.target.value = "";
+                  if (!file) {
+                    setManual((current) => ({
+                      ...current,
+                      imagePreview: "/casette.jpeg",
+                    }));
+                    return;
+                  }
+
+                  const reader = new FileReader();
+                  reader.onload = () => {
+                    setManual((current) => ({
+                      ...current,
+                      imagePreview:
+                        typeof reader.result === "string"
+                          ? reader.result
+                          : null,
+                    }));
+                  };
+                  reader.readAsDataURL(file);
                 }}
               />
               <input
