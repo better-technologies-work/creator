@@ -183,6 +183,76 @@ const JTBD_FIELDS: [keyof Jtbd, string, string][] = [
   ["friction", "LA FRICCIÓN", "¿Qué le daría desconfianza o pereza?"],
 ];
 
+// Guion de Charlie para el Lienzo (Etapa 1: Design the Box / Etapa 2: JTBD).
+const CANVAS_COPY = {
+  intro:
+    "Pago confirmado. Bienvenido al núcleo. Tu Vision Unit está activa, ahora vamos a convertir esa visión en un mapa arquitectónico. Iniciamos la Etapa 1: Design the Box.",
+  etapa1Header: "📦 ETAPA 1: DESIGN THE BOX (El Empaque y la Tienda)",
+  etapa2Header: "🎯 ETAPA 2: JOBS TO BE DONE (La Autopsia del Dolor)",
+  exterior:
+    "Imagina tu producto en el pasillo de un supermercado lleno de gente. ¿Quién es la persona exacta que se va a detener en seco al ver tu caja, y cuál es la ÚNICA frase gigante en la portada que le promete alivio o dinero?",
+  interior:
+    "El cliente compra la caja y la abre en su casa. Dime cuáles son los 3 'ingredientes' o herramientas de trabajo diario que usará con sus propias manos, y cuál es el 'Juguete de Regalo' o ese superpoder inesperado que la plataforma hará en silencio por él.",
+  supermercado:
+    "Ahora obliguemos a tu usuario a caminar por el supermercado. Defíneme las 4 paradas innegociables: 1. La Puerta (¿Cómo entra y se identifica?). 2. El Mostrador (¿Qué alerta o métrica ve primero?). 3. Los Pasillos (¿Cómo busca lo que necesita?). 4. La Caja Registradora (¿Dónde y cómo cierra el trato o el pago final?).",
+  etapa2Transicion:
+    "¡Hemos fabricado la estructura de tu producto! Hemos dividido tu plataforma en Piezas de Construcción Independientes (Quantos). Vamos a analizar una pieza a la vez. Entramos a la Etapa 2: Jobs To Be Done.",
+};
+
+type CanvasGate = {
+  id: string;
+  label?: string | undefined;
+  header?: string | undefined;
+  message?: string | undefined;
+};
+
+const boxSectionFirstStep = (index: number) =>
+  BOX_SECTIONS.slice(0, index).reduce(
+    (total, section) => total + section.fields.length,
+    0,
+  ) + 1;
+
+const jtbdFirstStep =
+  BOX_SECTIONS.reduce((total, section) => total + section.fields.length, 0) + 1;
+
+// Framing de cada Dimensión / Etapa: se muestra una sola vez, al llegar a la
+// primera pregunta de su grupo (no se repite en las siguientes del grupo).
+const buildCanvasGates = (step: number): CanvasGate[] => {
+  const gates: CanvasGate[] = [];
+
+  if (step === boxSectionFirstStep(0)) {
+    gates.push({
+      id: "etapa1",
+      label: BOX_SECTIONS[0]?.title,
+      header: CANVAS_COPY.etapa1Header,
+      message: CANVAS_COPY.exterior,
+    });
+  }
+  if (step === boxSectionFirstStep(1)) {
+    gates.push({
+      id: "interior",
+      label: BOX_SECTIONS[1]?.title,
+      message: CANVAS_COPY.interior,
+    });
+  }
+  if (step === boxSectionFirstStep(2)) {
+    gates.push({
+      id: "supermercado",
+      label: BOX_SECTIONS[2]?.title,
+      message: CANVAS_COPY.supermercado,
+    });
+  }
+  if (step === jtbdFirstStep) {
+    gates.push({
+      id: "etapa2-transicion",
+      message: CANVAS_COPY.etapa2Transicion,
+    });
+    gates.push({ id: "etapa2", header: CANVAS_COPY.etapa2Header });
+  }
+
+  return gates;
+};
+
 const LANGS = ["ES", "EN", "QU", "PT", "DE", "IT", "ZH", "JA"] as const;
 type Lang = (typeof LANGS)[number];
 type TKey =
@@ -301,6 +371,8 @@ function Index() {
   const [blueprintAnswers, setBlueprintAnswers] = useState<string[]>([]);
   const [canvasStep, setCanvasStep] = useState(1);
   const [canvasDraft, setCanvasDraft] = useState("");
+  const [canvasGates, setCanvasGates] = useState<string[]>([]);
+  const [showDreamsIntro, setShowDreamsIntro] = useState(false);
   const [cerealBox, setCerealBox] = useState<Box>({
     promise: "",
     icp: "",
@@ -327,9 +399,23 @@ function Index() {
     status: "proyecto",
   });
   // TODO(persistencia): cuando definamos Supabase, traer esto de la DB
-  const [teamAttachments] = useState([
-    { name: "Guía de Onboarding.pdf", type: "PDF", date: "24 SEP 2026" },
-    { name: "Checklist del Equipo.docx", type: "DOCX", date: "22 SEP 2026" },
+  const [teamAttachments] = useState<
+    { name: string; type: string; date: string; url: string | null }[]
+  >([
+    {
+      name: "Guía de Onboarding.pdf",
+      type: "PDF",
+      date: "24 SEP 2026",
+      // TODO(persistencia): reemplazar por URL real cuando esté Supabase
+      url: null,
+    },
+    {
+      name: "Checklist del Equipo.docx",
+      type: "DOCX",
+      date: "22 SEP 2026",
+      // TODO(persistencia): reemplazar por URL real cuando esté Supabase
+      url: null,
+    },
   ]);
 
   useEffect(() => {
@@ -388,6 +474,7 @@ function Index() {
     });
     setSelectedSquad(null);
     setHasPaidVisionUnit(false);
+    setCanvasGates([]);
     setCurrentView(8);
   };
 
@@ -407,7 +494,7 @@ function Index() {
     ]);
     setProjectName("");
     setProjectDesc("");
-    setCurrentView(3);
+    setShowDreamsIntro(true);
   };
 
   const guardarEnVault = () => {
@@ -717,6 +804,16 @@ function Index() {
               setBlueprintStep((step) => step + 1);
             };
 
+            const goBack = () => {
+              if (blueprintStep <= 1) return;
+
+              setBlueprintDraft(
+                blueprintAnswers[blueprintAnswers.length - 1] || "",
+              );
+              setBlueprintAnswers((current) => current.slice(0, -1));
+              setBlueprintStep((step) => step - 1);
+            };
+
             return (
               <section className="grid gap-6 lg:grid-cols-[3fr_7fr]">
                 <aside className="border-2 border-cyan-400 text-cyan-400 shadow-[0_0_20px_rgba(34,211,238,0.35)] bg-deep p-5 rounded-md font-mono space-y-4 lg:sticky lg:top-24 self-start">
@@ -831,14 +928,25 @@ function Index() {
                           <p className="font-mono text-xs text-cyan-400/70">
                             {`PREGUNTA ${currentStep.step} / ${BLUEPRINT_STEPS.length}`}
                           </p>
-                          <button
-                            type="button"
-                            className={`${GHOST} !border-cyan-400 !text-cyan-400 hover:!bg-cyan-400/10`}
-                            onClick={confirmAnswer}
-                            disabled={!blueprintDraft.trim()}
-                          >
-                            [ SIGUIENTE ]
-                          </button>
+                          <div className="flex flex-wrap items-center gap-3">
+                            {blueprintStep > 1 && (
+                              <button
+                                type="button"
+                                className={`${GHOST} !border-cyan-400 !text-cyan-400 hover:!bg-cyan-400/10`}
+                                onClick={goBack}
+                              >
+                                [ ATRÁS ]
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className={`${GHOST} !border-cyan-400 !text-cyan-400 hover:!bg-cyan-400/10`}
+                              onClick={confirmAnswer}
+                              disabled={!blueprintDraft.trim()}
+                            >
+                              [ SIGUIENTE ]
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -924,6 +1032,15 @@ function Index() {
               >
                 [ GUARDAR EN EL VAULT ]
               </button>
+              <button
+                className={GHOST}
+                onClick={() => {
+                  setBlueprintStep(BLUEPRINT_STEPS.length + 1);
+                  setCurrentView(8);
+                }}
+              >
+                [ ATRÁS ]
+              </button>
             </div>
           </section>
         )}
@@ -951,6 +1068,11 @@ function Index() {
             const currentQuestion = questions[canvasStep - 1];
             const answeredQuestions = questions.slice(0, canvasStep - 1);
             const isComplete = !currentQuestion;
+            const activeGate = canvasGates.length
+              ? buildCanvasGates(canvasStep).find(
+                  (gate) => gate.id === canvasGates[0],
+                )
+              : undefined;
 
             const getAnswer = (question: (typeof questions)[number]) =>
               question.target === "box"
@@ -973,8 +1095,33 @@ function Index() {
                 }));
               }
 
+              const nextStep = canvasStep + 1;
               setCanvasDraft("");
-              setCanvasStep((step) => step + 1);
+              setCanvasStep(nextStep);
+              setCanvasGates(buildCanvasGates(nextStep).map((gate) => gate.id));
+            };
+
+            const goBack = () => {
+              if (canvasStep <= 1) return;
+
+              const previousQuestion = questions[canvasStep - 2];
+              if (!previousQuestion) return;
+
+              if (previousQuestion.target === "box") {
+                setCanvasDraft(cerealBox[previousQuestion.key]);
+                setCerealBox((current) => ({
+                  ...current,
+                  [previousQuestion.key]: "",
+                }));
+              } else {
+                setCanvasDraft(jtbd[previousQuestion.key]);
+                setJtbd((current) => ({
+                  ...current,
+                  [previousQuestion.key]: "",
+                }));
+              }
+
+              setCanvasStep((step) => step - 1);
             };
 
             return (
@@ -1066,7 +1213,47 @@ function Index() {
                       );
                     })}
 
-                    {!isComplete && currentQuestion && (
+                    {activeGate && (
+                      <div className="space-y-4">
+                        <div className="flex items-start gap-3">
+                          <div className="shrink-0">
+                            <Sticker
+                              src="/Dreams Inc..png"
+                              alt="Dreams Inc."
+                              className="h-10 w-10 object-contain"
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm border border-neon/40 bg-deep/80 p-4 shadow-[0_0_16px_rgba(56,189,248,0.18)]">
+                            <p className="font-mono text-[10px] text-neon/70">
+                              {activeGate.label ?? "CHARLIE OS"}
+                            </p>
+                            {activeGate.header && (
+                              <p className="mt-2 text-sm font-extrabold leading-relaxed text-neon">
+                                {activeGate.header}
+                              </p>
+                            )}
+                            {activeGate.message && (
+                              <p className="mt-2 text-sm leading-relaxed text-neon">
+                                CHARLIE: {activeGate.message}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center justify-end gap-3">
+                          <button
+                            type="button"
+                            className={CTA}
+                            onClick={() =>
+                              setCanvasGates((current) => current.slice(1))
+                            }
+                          >
+                            [ CONTINUAR ]
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {!activeGate && !isComplete && currentQuestion && (
                       <div className="space-y-4">
                         <div className="flex items-start gap-3">
                           <div className="shrink-0">
@@ -1116,14 +1303,25 @@ function Index() {
                           <p className="font-mono text-xs text-neutral-400">
                             PREGUNTA {canvasStep} / {questions.length}
                           </p>
-                          <button
-                            type="button"
-                            className={CTA}
-                            onClick={confirmAnswer}
-                            disabled={!canvasDraft.trim()}
-                          >
-                            [ SIGUIENTE ]
-                          </button>
+                          <div className="flex flex-wrap items-center gap-3">
+                            {canvasStep > 1 && (
+                              <button
+                                type="button"
+                                className={GHOST}
+                                onClick={goBack}
+                              >
+                                [ ATRÁS ]
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              className={CTA}
+                              onClick={confirmAnswer}
+                              disabled={!canvasDraft.trim()}
+                            >
+                              [ SIGUIENTE ]
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}
@@ -1168,6 +1366,24 @@ function Index() {
             <h2 className="text-2xl sm:text-3xl font-extrabold">
               ELIGE A TU LÍDER
             </h2>
+            <div className="flex flex-wrap gap-4">
+              <button
+                className={GHOST}
+                onClick={() => {
+                  setCanvasStep(
+                    BOX_SECTIONS.reduce(
+                      (total, section) => total + section.fields.length,
+                      0,
+                    ) +
+                      JTBD_FIELDS.length +
+                      1,
+                  );
+                  setCurrentView(3);
+                }}
+              >
+                [ ATRÁS ]
+              </button>
+            </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {SQUADS.map((s) => (
                 <div
@@ -1448,13 +1664,33 @@ function Index() {
                         </p>
                       </div>
                     </div>
-                    <button
-                      type="button"
-                      className={GHOST}
-                      onClick={() => window.alert("Función en desarrollo")}
-                    >
-                      DESCARGAR
-                    </button>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        className={GHOST}
+                        onClick={() => window.alert("Función en desarrollo")}
+                      >
+                        DESCARGAR
+                      </button>
+                      {attachment.url ? (
+                        <a
+                          className={GHOST}
+                          href={attachment.url}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          VER
+                        </a>
+                      ) : (
+                        <button
+                          type="button"
+                          className={GHOST}
+                          onClick={() => window.alert("Función en desarrollo")}
+                        >
+                          VER
+                        </button>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1513,6 +1749,31 @@ function Index() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {showDreamsIntro && (
+        <div className="fixed inset-0 bg-deep/95 z-50 flex flex-col items-center justify-center gap-6 p-6 text-center">
+          <Sticker
+            src="/Dreams Inc..png"
+            alt="Dreams Inc."
+            className="w-56 object-contain"
+          />
+          <p className="max-w-xl text-lg leading-relaxed">
+            {CANVAS_COPY.intro}
+          </p>
+          <button
+            className={CTA}
+            onClick={() => {
+              setCanvasGates(
+                buildCanvasGates(canvasStep).map((gate) => gate.id),
+              );
+              setShowDreamsIntro(false);
+              setCurrentView(3);
+            }}
+          >
+            [ CONTINUAR ]
+          </button>
         </div>
       )}
 
