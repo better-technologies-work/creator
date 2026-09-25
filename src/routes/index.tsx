@@ -363,6 +363,34 @@ function Index() {
       () => setCurrentView(8),
     );
 
+  const iniciarNuevaMision = () => {
+    setBlueprintStep(1);
+    setBlueprintAnswers([]);
+    setBlueprintDraft("");
+    setCanvasStep(1);
+    setCerealBox({
+      promise: "",
+      icp: "",
+      feature1: "",
+      feature2: "",
+      feature3: "",
+      wowFactor: "",
+      door: "",
+      dashboard: "",
+      aisles: "",
+      register: "",
+    });
+    setJtbd({
+      trigger: "",
+      mission: "",
+      superpower: "",
+      friction: "",
+    });
+    setSelectedSquad(null);
+    setHasPaidVisionUnit(false);
+    setCurrentView(8);
+  };
+
   const pagar = () => {
     window.open("https://be-p.store", "_blank");
     setShowPay(false);
@@ -477,7 +505,7 @@ function Index() {
           </span>
         </div>
         <nav className="flex flex-wrap gap-2">
-          <button className={navBtn} onClick={() => setCurrentView(8)}>
+          <button className={navBtn} onClick={iniciarNuevaMision}>
             [ {t.newMission} ]
           </button>
           <button className={navBtn} onClick={() => setCurrentView(6)}>
@@ -567,6 +595,9 @@ function Index() {
               <button className={GHOST} onClick={() => setUserType("new")}>
                 [ {t.newPlayer} ]
               </button>
+              <button className={GHOST} onClick={() => setUserType(null)}>
+                [ VOLVER ]
+              </button>
             </div>
           </section>
         )}
@@ -615,6 +646,9 @@ function Index() {
               <button className={GHOST} onClick={() => setUserType("existing")}>
                 [ {t.haveConsole} ]
               </button>
+              <button className={GHOST} onClick={() => setUserType(null)}>
+                [ VOLVER ]
+              </button>
             </div>
           </section>
         )}
@@ -650,13 +684,21 @@ function Index() {
                 }
               />
             </div>
-            <button
-              className={CTA}
-              onClick={forjarIdentidad}
-              disabled={!playerData.alias.trim()}
-            >
-              [ FORJAR IDENTIDAD ]
-            </button>
+            <div className="flex flex-wrap gap-4">
+              <button
+                className={CTA}
+                onClick={forjarIdentidad}
+                disabled={!playerData.alias.trim()}
+              >
+                [ FORJAR IDENTIDAD ]
+              </button>
+              <button className={GHOST} onClick={() => setNewStep(1)}>
+                [ VOLVER ]
+              </button>
+              <button className={GHOST} onClick={() => setUserType(null)}>
+                [ VOLVER AL INICIO ]
+              </button>
+            </div>
           </section>
         )}
 
@@ -839,21 +881,20 @@ function Index() {
         {currentView === 2 && (
           <section className="space-y-8">
             <div className="relative mx-auto w-80">
-  <Sticker
-    src="/Consola Creator.png"
-    alt="Consola Creator"
-    className="w-80"
-  />
-  {/* Banana Maqueño DENTRO de la pantalla de la consola */}
-  <div className="absolute top-[18%] left-[20%] w-[60%] h-[35%] flex items-center justify-center overflow-hidden">
-    <img
-      src="/Maqueño.png"
-      alt="Powered by Maqueño OS"
-      className="max-w-full max-h-full object-contain"
-    />
-  </div>
-</div>
-
+              <Sticker
+                src="/Consola Creator.png"
+                alt="Consola Creator"
+                className="w-80"
+              />
+              {/* Banana Maqueño DENTRO de la pantalla de la consola */}
+              <div className="absolute top-[18%] left-[20%] w-[60%] h-[35%] flex items-center justify-center overflow-hidden">
+                <img
+                  src="/Maqueño.png"
+                  alt="Powered by Maqueño OS"
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
+            </div>
 
             <input
               className={INPUT}
@@ -1440,42 +1481,40 @@ function Index() {
         )}
       </main>
       {showPay && (
-  <div
-    className="fixed inset-0 bg-deep/90 z-50 flex items-center justify-center p-6"
-    onClick={() => setShowPay(false)}
-  >
-    <div
-      className="relative mx-auto w-[28rem]"
-      onClick={(e) => e.stopPropagation()}
-    >
-      <Sticker
-        src="/Consola Creator.png"
-        alt="Consola Creator"
-        className="w-[28rem]"
-      />
-      {/* Vision Unit, $50 y el botón de pago DENTRO de la pantalla de la consola */}
-<div className="absolute top-[13%] left-[15%] w-[70%] h-[45%] flex flex-col items-center justify-center gap-2 overflow-hidden">        <div className="flex items-center justify-center gap-2">
-          <img
-            src="/Vision Unit.png"
-            alt="Vision Unit"
-            className="w-16 object-contain"
-          />
-          <img
-            src="/$50.png"
-            alt="$50"
-            className="w-18 object-contain"
-          />
-        </div>
-        <button
-          className={`${CTA} text-[10px] px-3 py-1.5`}
-          onClick={pagar}
+        <div
+          className="fixed inset-0 bg-deep/90 z-50 flex items-center justify-center p-6"
+          onClick={() => setShowPay(false)}
         >
-          [ PAGAR $50 ]
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+          <div
+            className="relative mx-auto w-[28rem]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <Sticker
+              src="/Consola Creator.png"
+              alt="Consola Creator"
+              className="w-[28rem]"
+            />
+            {/* Vision Unit, $50 y el botón de pago DENTRO de la pantalla de la consola */}
+            <div className="absolute top-[13%] left-[15%] w-[70%] h-[45%] flex flex-col items-center justify-center gap-2 overflow-hidden">
+              {" "}
+              <div className="flex items-center justify-center gap-2">
+                <img
+                  src="/Vision Unit.png"
+                  alt="Vision Unit"
+                  className="w-16 object-contain"
+                />
+                <img src="/$50.png" alt="$50" className="w-18 object-contain" />
+              </div>
+              <button
+                className={`${CTA} text-[10px] px-3 py-1.5`}
+                onClick={pagar}
+              >
+                [ PAGAR $50 ]
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isLoading && (
         <div className="fixed inset-0 bg-deep/95 z-50 flex flex-col items-center justify-center">
