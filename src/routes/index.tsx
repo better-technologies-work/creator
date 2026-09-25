@@ -1,3 +1,4 @@
+import emailjs from "@emailjs/browser";
 import { createFileRoute } from "@tanstack/react-router";
 import { FileText } from "lucide-react";
 import { motion } from "motion/react";
@@ -24,8 +25,6 @@ export const Route = createFileRoute("/")({
   }),
   component: Index,
 });
-
-const FORM_ENDPOINT = "https://formsubmit.co/ajax/diego@better-technologies.com";
 
 const CTA =
   "bg-tactical hover:bg-tactical-hover text-black font-sans font-extrabold tracking-wide px-6 py-3 rounded-md shadow-[0_0_20px_rgba(255,94,0,0.4)] transition-colors disabled:opacity-40 disabled:cursor-not-allowed";
@@ -402,24 +401,27 @@ function Index() {
   const handleGo = async () => {
     setIsLoading(true);
     setLoadingText("DESPACHANDO MASTER DOC...");
+
+    const templateParams = {
+      player_name: playerData.name || playerData.alias || "GUEST",
+      player_org: playerData.org || "Sin organización",
+      subdomain: playerData.subdomain || playerData.alias,
+      project_name: projectName || "Sin nombre",
+      cereal_box: JSON.stringify(cerealBox, null, 2),
+      jtbd: JSON.stringify(jtbd, null, 2),
+      selected_squad: selectedSquad || "Sin seleccionar",
+      blueprint_answers: JSON.stringify(blueprintAnswers, null, 2),
+    };
+
     try {
-      await fetch(FORM_ENDPOINT, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-             body: JSON.stringify({
-        _subject: `Nuevo Master Doc: ${projectName || "Sin nombre"}`,
-        playerData,
-        projectName,
-        cerealBox,
-        jtbd,
-        selectedSquad,
-      }),
-      });
+      await emailjs.send(
+        import.meta.env["VITE_EMAILJS_SERVICE_ID"] || "service_default",
+        import.meta.env["VITE_EMAILJS_TEMPLATE_ID"] || "template_default",
+        templateParams,
+        import.meta.env["VITE_EMAILJS_PUBLIC_KEY"] || "YOUR_PUBLIC_KEY",
+      );
     } catch (e) {
-      console.error(e);
+      console.error("Error al enviar email vía EmailJS:", e);
     }
     setVaultCassettes((current) => [
       ...current,
