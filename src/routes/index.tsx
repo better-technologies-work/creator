@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { FileText } from "lucide-react";
 import { motion } from "motion/react";
 import { useEffect, useState } from "react";
 
@@ -263,6 +264,7 @@ function Index() {
   const [selectedSquad, setSelectedSquad] = useState<string | null>(null);
   const [showPay, setShowPay] = useState(false);
   const [canvasStep, setCanvasStep] = useState(1);
+  const [canvasDraft, setCanvasDraft] = useState("");
   const [cerealBox, setCerealBox] = useState<Box>({
     promise: "",
     icp: "",
@@ -288,6 +290,11 @@ function Index() {
     imagePreview: null,
     status: "proyecto",
   });
+  // TODO(persistencia): cuando definamos Supabase, traer esto de la DB
+  const [teamAttachments] = useState([
+    { name: "Guía de Onboarding.pdf", type: "PDF", date: "24 SEP 2026" },
+    { name: "Checklist del Equipo.docx", type: "DOCX", date: "22 SEP 2026" },
+  ]);
 
   useEffect(() => {
     if (currentView !== 0) return;
@@ -329,7 +336,7 @@ function Index() {
       {
         title: projectName,
         desc: projectDesc,
-        imagePreview: null,
+        imagePreview:"/casette.jpeg",
         status: "mision",
       },
     ]);
@@ -345,7 +352,7 @@ function Index() {
       {
         title: projectName,
         desc: projectDesc,
-        imagePreview: null,
+        imagePreview:  "/casette.jpeg",
         status: "proyecto",
       },
     ]);
@@ -417,7 +424,7 @@ function Index() {
           <img
             src="/Creator Box.png"
             alt="Creator Box"
-            className="h-6 object-contain cursor-pointer"
+            className="h-14 object-contain cursor-pointer"
             onClick={() => setCurrentView(2)}
           />
           <span className="font-mono text-xs sm:text-sm">
@@ -425,7 +432,7 @@ function Index() {
           </span>
         </div>
         <nav className="flex flex-wrap gap-2">
-          <button className={navBtn} onClick={() => setCurrentView(2)}>
+          <button className={navBtn} onClick={() => setCurrentView(8)}>
             [ {t.newMission} ]
           </button>
           <button className={navBtn} onClick={() => setCurrentView(6)}>
@@ -657,17 +664,7 @@ function Index() {
   </div>
 </div>
 
-{/* Imagen fija del Cassette + nombre del usuario */}
-<div className="flex flex-col items-center gap-2">
-  <img
-    src="/casette.jpeg"
-    alt="Cassette"
-    className="w-40 h-40 object-cover rounded-md border border-white/15"
-  />
-  <p className="font-mono text-sm text-tactical">
-    {(playerData.name || playerData.alias || "Jugador")} Adventure
-  </p>
-</div>
+
             <input
               className={INPUT}
               placeholder="Nombra tu Casete/Proyecto"
@@ -700,90 +697,230 @@ function Index() {
           </section>
         )}
 
-        {currentView === 3 && (
-          <section className="grid gap-6 lg:grid-cols-[3fr_7fr]">
-            <aside className="border-2 border-neon shadow-[0_0_20px_rgba(56,189,248,0.35)] bg-deep p-5 rounded-md font-mono space-y-4 lg:sticky lg:top-24 self-start">
-              <p className="text-xs text-neutral-400">CHARLIE OS</p>
-              <Sticker
-                src="/Dreams Inc..png"
-                alt="Dreams Inc."
-                className="h-10"
-              />
-              <p className="text-neon text-sm leading-relaxed">
-                {canvasStep === 1
-                  ? "CHARLIE: Vamos a diseñar la 'Caja de Cereal' de tu proyecto. ¿Qué promesa gigante pondrías en la portada para que el cliente la compre? Llena los ingredientes en el panel derecho."
-                  : "CHARLIE: Estructura descubierta. Ahora, hagamos la autopsia del 'Job To Be Done'. ¿Qué apuro tiene tu cliente antes de usar tu plataforma?"}
-              </p>
-            </aside>
-            <div
-              className={`${GLASS} rounded-xl p-6 space-y-8 lg:max-h-[75vh] lg:overflow-y-auto`}
-            >
-              <p className="font-mono text-xs text-neutral-400">
-                EL LIENZO (CANVAS)
-              </p>
-              {canvasStep === 1 ? (
-                <>
-                  <h2 className="text-2xl font-extrabold">DESIGN THE BOX</h2>
-                  {BOX_SECTIONS.map((sec) => (
-                    <div key={sec.title} className="space-y-3">
-                      <h3 className="font-mono text-tactical text-sm">
-                        {sec.title}
-                      </h3>
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {sec.fields.map(([k, label]) => (
-                          <label key={k} className="block space-y-1">
-                            <span className="font-mono text-xs text-neutral-300">
-                              {label}
-                            </span>
-                            <textarea
-                              rows={2}
-                              className={INPUT}
-                              value={cerealBox[k]}
-                              onChange={(e) =>
-                                setCerealBox({
-                                  ...cerealBox,
-                                  [k]: e.target.value,
-                                })
-                              }
+        {currentView === 3 &&
+          (() => {
+            const questions = [
+              ...BOX_SECTIONS.flatMap((section) =>
+                section.fields.map(([key, label]) => ({
+                  target: "box" as const,
+                  key,
+                  section: section.title,
+                  label,
+                  question: label,
+                })),
+              ),
+              ...JTBD_FIELDS.map(([key, label, question]) => ({
+                target: "jtbd" as const,
+                key,
+                section: "JOBS TO BE DONE",
+                label,
+                question,
+              })),
+            ];
+            const currentQuestion = questions[canvasStep - 1];
+            const answeredQuestions = questions.slice(0, canvasStep - 1);
+            const isComplete = !currentQuestion;
+
+            const getAnswer = (question: (typeof questions)[number]) =>
+              question.target === "box"
+                ? cerealBox[question.key]
+                : jtbd[question.key];
+
+            const confirmAnswer = () => {
+              const answer = canvasDraft.trim();
+              if (!answer || !currentQuestion || isComplete) return;
+
+              if (currentQuestion.target === "box") {
+                setCerealBox((current) => ({
+                  ...current,
+                  [currentQuestion.key]: answer,
+                }));
+              } else {
+                setJtbd((current) => ({
+                  ...current,
+                  [currentQuestion.key]: answer,
+                }));
+              }
+
+              setCanvasDraft("");
+              setCanvasStep((step) => step + 1);
+            };
+
+            return (
+              <section className="grid gap-6 lg:grid-cols-[3fr_7fr]">
+                <aside className="border-2 border-neon shadow-[0_0_20px_rgba(56,189,248,0.35)] bg-deep p-5 rounded-md font-mono space-y-4 lg:sticky lg:top-24 self-start">
+                  <p className="text-xs text-neutral-400">CHARLIE OS</p>
+                  <Sticker
+                    src="/Dreams Inc..png"
+                    alt="Dreams Inc."
+                    className="h-10"
+                  />
+                  <p className="text-neon text-sm leading-relaxed">
+                    {isComplete
+                      ? "CHARLIE: Estructura descubierta. Tu diseño está completo."
+                      : currentQuestion &&
+                        `CHARLIE: ${
+                          currentQuestion.target === "box"
+                            ? `${currentQuestion.section}. `
+                            : ""
+                        }${currentQuestion.question}`}
+                  </p>
+                </aside>
+
+                <div
+                  className={`${GLASS} rounded-xl p-6 space-y-6 lg:max-h-[75vh] lg:overflow-y-auto`}
+                  aria-live="polite"
+                >
+                  <div className="space-y-2">
+                    <p className="font-mono text-xs text-neutral-400">
+                      EL LIENZO (CANVAS)
+                    </p>
+                    <h2 className="text-2xl font-extrabold">
+                      {currentQuestion?.target === "box"
+                        ? "DESIGN THE BOX"
+                        : "JOBS TO BE DONE"}
+                    </h2>
+                  </div>
+
+                  <div className="space-y-6">
+                    {answeredQuestions.map((question) => {
+                      const answer = getAnswer(question);
+
+                      return (
+                        <div
+                          key={`${question.target}-${question.key}`}
+                          className="space-y-3 border-b border-white/10 pb-6 last:border-0 last:pb-0"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="shrink-0">
+                              <Sticker
+                                src="/Dreams Inc..png"
+                                alt="Dreams Inc."
+                                className="h-10 w-10 object-contain"
+                              />
+                            </div>
+                            <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm border border-neon/40 bg-deep/80 p-4 shadow-[0_0_16px_rgba(56,189,248,0.18)]">
+                              <p className="font-mono text-[10px] text-neon/70">
+                                {question.section}
+                              </p>
+                              <p className="mt-2 text-sm leading-relaxed text-neon">
+                                <span className="font-extrabold">
+                                  {question.label}
+                                </span>
+                                {question.target === "jtbd" && (
+                                  <span> — {question.question}</span>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="ml-8 rounded-xl rounded-tr-sm border border-white/10 bg-white/10 p-4">
+                            <p className="font-mono text-[10px] text-neutral-400">
+                              TU RESPUESTA
+                            </p>
+                            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed">
+                              {answer}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+
+                    {!isComplete && currentQuestion && (
+                      <div className="space-y-4">
+                        <div className="flex items-start gap-3">
+                          <div className="shrink-0">
+                            <Sticker
+                              src="/Dreams Inc..png"
+                              alt="Dreams Inc."
+                              className="h-10 w-10 object-contain"
                             />
-                          </label>
-                        ))}
+                          </div>
+                          <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm border border-neon/40 bg-deep/80 p-4 shadow-[0_0_16px_rgba(56,189,248,0.18)]">
+                            <p className="font-mono text-[10px] text-neon/70">
+                              {currentQuestion.section}
+                            </p>
+                            <p className="mt-2 text-sm leading-relaxed text-neon">
+                              <span className="font-extrabold">
+                                {currentQuestion.label}
+                              </span>
+                              {currentQuestion.target === "jtbd" && (
+                                <span> — {currentQuestion.question}</span>
+                              )}
+                            </p>
+                          </div>
+                        </div>
+
+                        <label className="block space-y-2">
+                          <span className="sr-only">
+                            Respuesta para {currentQuestion.label}
+                          </span>
+                          <textarea
+                            key={`${currentQuestion.target}-${currentQuestion.key}`}
+                            rows={4}
+                            className={INPUT}
+                            value={canvasDraft}
+                            placeholder="Escribí tu respuesta..."
+                            autoFocus
+                            onChange={(e) => setCanvasDraft(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" && !e.shiftKey) {
+                                e.preventDefault();
+                                confirmAnswer();
+                              }
+                            }}
+                          />
+                        </label>
+
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                          <p className="font-mono text-xs text-neutral-400">
+                            PREGUNTA {canvasStep} / {questions.length}
+                          </p>
+                          <button
+                            type="button"
+                            className={CTA}
+                            onClick={confirmAnswer}
+                            disabled={!canvasDraft.trim()}
+                          >
+                            [ SIGUIENTE ]
+                          </button>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  <button className={CTA} onClick={() => setCanvasStep(2)}>
-                    [ APROBAR DISEÑO DE LA CAJA ]
-                  </button>
-                </>
-              ) : (
-                <>
-                  <h2 className="text-2xl font-extrabold">JOBS TO BE DONE</h2>
-                  {JTBD_FIELDS.map(([k, title, q]) => (
-                    <label key={k} className="block space-y-2">
-                      <span className="font-mono text-sm text-tactical">
-                        {title}
-                      </span>
-                      <span className="block text-sm text-neutral-300">
-                        {q}
-                      </span>
-                      <textarea
-                        rows={5}
-                        className={INPUT}
-                        value={jtbd[k]}
-                        onChange={(e) =>
-                          setJtbd({ ...jtbd, [k]: e.target.value })
-                        }
-                      />
-                    </label>
-                  ))}
-                  <button className={CTA} onClick={() => setCurrentView(4)}>
-                    [ ENSAMBLAR CONTRATO JTBD ]
-                  </button>
-                </>
-              )}
-            </div>
-          </section>
-        )}
+                    )}
+
+                    {isComplete && (
+                      <div className="space-y-6">
+                        <div className="flex items-start gap-3">
+                          <div className="shrink-0">
+                            <Sticker
+                              src="/Dreams Inc..png"
+                              alt="Dreams Inc."
+                              className="h-10 w-10 object-contain"
+                            />
+                          </div>
+                          <div className="min-w-0 flex-1 rounded-xl rounded-tl-sm border border-neon/40 bg-deep/80 p-4 shadow-[0_0_16px_rgba(56,189,248,0.18)]">
+                            <p className="font-mono text-[10px] text-neon/70">
+                              CHARLIE OS
+                            </p>
+                            <p className="mt-2 text-sm leading-relaxed text-neon">
+                              Estructura descubierta. Tu diseño está listo para
+                              ensamblar.
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          className={CTA}
+                          onClick={() => setCurrentView(4)}
+                        >
+                          [ ENSAMBLAR CONTRATO JTBD ]
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </section>
+            );
+          })()}
 
         {currentView === 4 && (
           <section className="space-y-8">
@@ -979,7 +1116,11 @@ function Index() {
                   MISIONES FORJADAS
                 </p>
                 <p className="text-4xl font-extrabold text-tactical mt-2">
-                  {vaultCassettes.length}
+                  {
+                    vaultCassettes.filter(
+                      (cassette) => cassette.status === "mision",
+                    ).length
+                  }
                 </p>
               </div>
               <div className={`${GLASS} rounded-xl p-6`}>
@@ -1000,32 +1141,125 @@ function Index() {
                 <p className="font-mono text-sm">80%</p>
               </div>
             </div>
+
+            <div className="space-y-4">
+              {/* TODO(persistencia): cuando definamos Supabase, traer esto de la DB */}
+              <h3 className="font-mono text-tactical">TUS MISIONES</h3>
+              {vaultCassettes.filter((cassette) => cassette.status === "mision")
+                .length === 0 ? (
+                <p className="font-mono text-neutral-400">
+                  Todavía no tienes misiones forjadas.
+                </p>
+              ) : (
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {vaultCassettes
+                    .filter((cassette) => cassette.status === "mision")
+                    .map((mission, i) => (
+                      <div
+                        key={`${mission.title}-${i}`}
+                        className={`${GLASS} rounded-xl p-4 space-y-2`}
+                      >
+                        <h4 className="font-extrabold">{mission.title}</h4>
+                        <p className="text-sm text-neutral-300">
+                          {mission.desc}
+                        </p>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-4">
+              <h3 className="font-mono text-tactical">ADJUNTOS DEL EQUIPO</h3>
+              <div className={`${GLASS} rounded-xl divide-y divide-white/10`}>
+                {teamAttachments.map((attachment) => (
+                  <div
+                    key={attachment.name}
+                    className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="flex min-w-0 items-center gap-3">
+                      <FileText
+                        aria-hidden="true"
+                        className="h-8 w-8 shrink-0 text-tactical"
+                      />
+                      <div className="min-w-0">
+                        <p className="break-words font-extrabold">
+                          {attachment.name}
+                        </p>
+                        <p className="font-mono text-xs text-neutral-400">
+                          {attachment.type} · {attachment.date}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      className={GHOST}
+                      onClick={() => window.alert("Función en desarrollo")}
+                    >
+                      DESCARGAR
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* TODO(persistencia): cuando definamos Supabase, traer esto de la DB */}
+              <h3 className="font-mono text-tactical">BANCO DE CONOCIMIENTO</h3>
+              <div
+                className={`${GLASS} rounded-xl flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between`}
+              >
+                <p className="font-extrabold">Presentación de Creator Box</p>
+                <a
+                  className={GHOST}
+                  href="/creator_box.pdf"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  ABRIR PDF
+                </a>
+              </div>
+            </div>
           </section>
         )}
       </main>
       {showPay && (
-        <div
-          className="fixed inset-0 bg-deep/90 z-50 flex items-center justify-center p-6"
-          onClick={() => setShowPay(false)}
-        >
-          <div
-            className={`${GLASS} rounded-xl p-8 text-center space-y-6`}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-center gap-4">
-              <Sticker
-                src="/Vision Unit.png"
-                alt="Vision Unit"
-                className="w-36"
-              />
-              <Sticker src="/$50.png" alt="$50" className="w-24" />
-            </div>
-            <button className={CTA} onClick={pagar}>
-              [ PAGAR $50 ]
-            </button>
-          </div>
+  <div
+    className="fixed inset-0 bg-deep/90 z-50 flex items-center justify-center p-6"
+    onClick={() => setShowPay(false)}
+  >
+    <div
+      className="relative mx-auto w-[28rem]"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <Sticker
+        src="/Consola Creator.png"
+        alt="Consola Creator"
+        className="w-[28rem]"
+      />
+      {/* Vision Unit, $50 y el botón de pago DENTRO de la pantalla de la consola */}
+<div className="absolute top-[13%] left-[15%] w-[70%] h-[45%] flex flex-col items-center justify-center gap-2 overflow-hidden">        <div className="flex items-center justify-center gap-2">
+          <img
+            src="/Vision Unit.png"
+            alt="Vision Unit"
+            className="w-16 object-contain"
+          />
+          <img
+            src="/$50.png"
+            alt="$50"
+            className="w-18 object-contain"
+          />
         </div>
-      )}
+        <button
+          className={`${CTA} text-[10px] px-3 py-1.5`}
+          onClick={pagar}
+        >
+          [ PAGAR $50 ]
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {isLoading && (
         <div className="fixed inset-0 bg-deep/95 z-50 flex flex-col items-center justify-center">
